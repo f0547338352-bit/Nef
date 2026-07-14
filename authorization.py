@@ -7,60 +7,69 @@ before every other handler (handler group -1) so unauthorized groups never
 reach the moderation/protection logic.
 """
 
-from pyrogram import filters
-
-from main import app
+from telegram import Update
+from telegram.ext import ContextTypes
 from db import is_main_owner, is_chat_authorized, authorize_chat, revoke_chat_authorization
 
-# Commands that should keep working even in unauthorized groups, so members
-# can at least see what the bot is / ask the owner to authorize it.
+# الأوامر المسموح بها دائماً حتى لو كانت المجموعة غير موثقة
 ALWAYS_ALLOWED = {"start", "بداية", "help", "مساعدة", "الاوامر", "توثيق", "الغاء_التوثيق"}
 
-
-@app.on_message(filters.command(["توثيق"], prefixes=None) & filters.group)
-async def authorize_chat_command(client, message):
-    if not is_main_owner(message.from_user.id):
-        await message.reply("❌ **هذا الأمر متاح فقط للمالك الأساسي للبوت.**")
+async def authorize_chat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """أمر توثيق المجموعة"""
+    if not update.message or not update.effective_user or not update.effective_chat:
         return
 
-    authorize_chat(message.chat.id, message.from_user.id)
-    await message.reply(
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    if not is_main_owner(user_id):
+        await update.message.reply_text("❌ **هذا الأمر متاح فقط للمالك الأساسي للبوت.**")
+        return
+
+    authorize_chat(chat_id, user_id)
+    await update.message.reply_text(
         "✅ **تم توثيق هذه المجموعة!**\n\n"
         "البوت الآن مفعّل ويعمل بكامل صلاحياته في هذا القروب."
     )
 
-
-@app.on_message(filters.command(["الغاء_التوثيق"], prefixes=None) & filters.group)
-async def revoke_chat_command(client, message):
-    if not is_main_owner(message.from_user.id):
-        await message.reply("❌ **هذا الأمر متاح فقط للمالك الأساسي للبوت.**")
+async def revoke_chat_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """أمر إلغاء توثيق المجموعة"""
+    if not update.message or not update.effective_user or not update.effective_chat:
         return
 
-    revoke_chat_authorization(message.chat.id, message.from_user.id)
-    await message.reply("🚫 **تم إلغاء توثيق هذه المجموعة.** لن يستجيب البوت هنا حتى تتم إعادة توثيقه.")
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
 
-
-@app.on_message(filters.group & filters.text, group=-1)
-async def authorization_gate(client, message):
-    if not message.from_user:
+    if not is_main_owner(user_id):
+        await update.message.reply_text("❌ **هذا الأمر متاح فقط للمالك الأساسي للبوت.**")
         return
 
-    chat_id = message.chat.id
-    user_id = message.from_user.id
+    revoke_chat_authorization(chat_id, user_id)
+    await update.message.reply_text("🚫 **تم إلغاء توثيق هذه المجموعة.** لن يستجيب البوت هنا حتى تتم إعادة توثيقه.")
 
-    # Main owner always works, everywhere, including running توثيق itself.
+async def authorization_gate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """بوابة الحماية لمنع الأوامر في المجموعات غير الموثقة"""
+    if not update.message or not update.effective_user or not update.effective_chat:
+        return
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    # المالك الأساسي يتجاوز البوابة دائماً
     if is_main_owner(user_id):
         return
 
+    # إذا كانت المجموعة موثقة، نسمح بمرور الرسالة
     if is_chat_authorized(chat_id):
         return
 
-    text = (message.text or "").strip()
+    text = (update.message.text or "").strip()
     first_word = text.split()[0].lstrip("/") if text else ""
 
+    # إذا كان الأمر مسموحاً به دائماً، ندعه يمر
     if first_word in ALWAYS_ALLOWED:
         return
 
-    # Unauthorized group: silently block every other command/handler
-    # (moderation actions, protection enforcement, settings, etc.)
-    message.stop_propagation()
+    # إذا كانت المجموعة غير موثقة، نقوم بإيقاف معالجة الرسالة تماماً وحظرها
+    # هذا يعادل message.stop_propagation() في pyrogram
+    context.application.handlers.clear() 
