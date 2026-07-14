@@ -30,19 +30,23 @@ from error_monitor import install as install_error_monitor
 from reports import send_report
 from local_filter import analyze_text
 
+# ====================== التوكن ======================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN غير موجود")
 
+# ====================== قاعدة البيانات ======================
 init_db()
 MAIN_OWNER_ID = get_main_owner()
 
+# ====================== إعدادات التسجيل ======================
 logging.basicConfig(level=logging.INFO)
 
+# ====================== إنشاء البوت ======================
 app = Application.builder().token(BOT_TOKEN).build()
 install_error_monitor(app.bot)
 
-# ===== الأوامر الأساسية =====
+# ====================== الأوامر الأساسية ======================
 app.add_handler(CommandHandler("start", start_command))
 app.add_handler(CommandHandler("بداية", start_command))
 app.add_handler(CommandHandler("help", help_command))
@@ -53,11 +57,11 @@ app.add_handler(CommandHandler("settings", settings_command))
 app.add_handler(CommandHandler("المشرفين", list_admins_command))
 app.add_handler(CommandHandler("الملاك", list_owners_command))
 
-# ===== التوثيق =====
+# ====================== التوثيق ======================
 app.add_handler(CommandHandler("توثيق", authorize_chat_command))
 app.add_handler(CommandHandler("الغاء_التوثيق", revoke_chat_command))
 
-# ===== الرتب =====
+# ====================== الرتب ======================
 app.add_handler(CommandHandler("رفع_مشرف", promote_admin))
 app.add_handler(CommandHandler("رفع_ادمن", promote_admin))
 app.add_handler(CommandHandler("رفع_مدير", promote_manager))
@@ -67,7 +71,7 @@ app.add_handler(CommandHandler("تنزيل_ادمن", demote_admin))
 app.add_handler(CommandHandler("تنزيل_مدير", demote_manager))
 app.add_handler(CommandHandler("تنزيل_مالك", demote_owner))
 
-# ===== الحظر والطرد والكتم =====
+# ====================== الحظر والطرد والكتم ======================
 app.add_handler(CommandHandler("حظر", ban_user))
 app.add_handler(CommandHandler("ban", ban_user))
 app.add_handler(CommandHandler("فك_حظر", unban_user))
@@ -83,7 +87,7 @@ app.add_handler(CommandHandler("restrict", restrict_user))
 app.add_handler(CommandHandler("فك_تقييد", unrestrict_user))
 app.add_handler(CommandHandler("unrestrict", unrestrict_user))
 
-# ===== القفل والفتح =====
+# ====================== القفل والفتح ======================
 app.add_handler(CommandHandler("قفل", lock_chat))
 app.add_handler(CommandHandler("فتح", unlock_chat))
 app.add_handler(CommandHandler("قفل_الروابط", lock_links))
@@ -103,11 +107,11 @@ app.add_handler(CommandHandler("فتح_الدعوات", unlock_invites))
 app.add_handler(CommandHandler("قفل_الحسابات_الجديدة", lock_new_accounts))
 app.add_handler(CommandHandler("فتح_الحسابات_الجديدة", unlock_new_accounts))
 
-# ===== معالج الرسائل =====
+# ====================== معالج الرسائل ======================
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, protection_handle_message))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, authorization_gate), group=-1)
 
-# ===== التقرير اليومي =====
+# ====================== التقرير اليومي ======================
 async def daily_report():
     while True:
         await asyncio.sleep(24 * 60 * 60)
@@ -116,11 +120,13 @@ async def daily_report():
         except Exception as e:
             print(f"[daily report] failed: {e}")
 
+# ====================== التشغيل ======================
 async def main():
     try:
         await app.bot.send_message(MAIN_OWNER_ID, "✅ **تم تشغيل البوت.**")
     except Exception as e:
         print(f"[startup] could not DM main owner: {e}")
+    
     asyncio.create_task(daily_report())
     print("🚀 البوت يعمل الآن!")
     await app.run_polling()
