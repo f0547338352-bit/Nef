@@ -1,4 +1,4 @@
-pyrogram
-tgcrypto
-google-genai
-openai
+python-telegram-bot==20.7
+requests==2.31.0
+flask==2.3.3
+google-generativeai
